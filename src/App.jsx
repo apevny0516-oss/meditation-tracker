@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getSessions, addSession, updateSession, deleteSession, getTimerSettings, saveTimerSettings } from './utils/storage'
+import { getTimerSettings, saveTimerSettings } from './utils/storage'
 import { calculateCurrentStreak, calculateLongestStreak } from './utils/streaks'
 import { exportSessionsToCSV } from './utils/export'
+import { useSessions } from './hooks/useSessions'
+import { signInWithGoogle, signOut } from './firebase/auth'
+import { hasConfig } from './firebase/config'
 import './App.css'
 
 function formatTime(seconds) {
@@ -140,7 +143,7 @@ function SessionRow({ session, onUpdate, onDelete }) {
 }
 
 function App() {
-  const [sessions, setSessions] = useState(getSessions)
+  const { user, sessions, loading, addSession, updateSession, deleteSession, getSessionsForExport } = useSessions()
   const [durationMinutes, setDurationMinutes] = useState(() => getTimerSettings()?.minutes ?? 10)
   const [durationSeconds, setDurationSeconds] = useState(() => getTimerSettings()?.seconds ?? 0)
   const totalDurationSeconds = durationMinutes * 60 + durationSeconds
@@ -156,11 +159,29 @@ function App() {
   const hasLoggedCompletion = useRef(false)
   const bellRef = useRef(null)
 
+  const unlockAudio = useCallback(() => {
+    try {
+      const audio = bellRef.current || new Audio(import.meta.env.BASE_URL + 'gong.mp3')
+      if (!bellRef.current) bellRef.current = audio
+      const wasUnlocked = audio.dataset.unlocked === '1'
+      if (!wasUnlocked) {
+        audio.volume = 0
+        audio.play().then(() => {
+          audio.pause()
+          audio.currentTime = 0
+          audio.volume = 1
+          audio.dataset.unlocked = '1'
+        }).catch(() => {})
+      }
+    } catch {}
+  }, [])
+
   const playBell = useCallback(() => {
     try {
       const audio = bellRef.current || new Audio(import.meta.env.BASE_URL + 'gong.mp3')
       if (!bellRef.current) bellRef.current = audio
       audio.currentTime = 0
+      audio.volume = 1
       audio.play().catch(() => {})
     } catch {}
   }, [])
@@ -184,10 +205,10 @@ function App() {
         if (prev <= 1) {
           if (!hasLoggedCompletion.current) {
             hasLoggedCompletion.current = true
-            setSessions(addSession({
+            addSession({
               durationSeconds: initialDuration,
               completedAt: new Date().toISOString(),
-            }))
+            })
             playBell()
           }
           setIsRunning(false)
@@ -197,30 +218,29 @@ function App() {
       })
     }, 1000)
     return () => clearInterval(timer)
-  }, [isRunning, initialDuration, playBell])
+  }, [isRunning, initialDuration, playBell, addSession])
 
   const start = useCallback(() => {
+    unlockAudio()
     setInitialDuration((prev) => (timeLeft > 0 ? timeLeft : totalDurationSeconds))
     setTimeLeft((prev) => (prev > 0 ? prev : totalDurationSeconds))
     setIsRunning(true)
-  }, [totalDurationSeconds, timeLeft])
+  }, [totalDurationSeconds, timeLeft, unlockAudio])
 
   const pause = useCallback(() => setIsRunning(false), [])
 
   const stopAndLog = useCallback(() => {
     if (elapsedSeconds > 0) {
-      setSessions(
-        addSession({
-          durationSeconds: elapsedSeconds,
-          completedAt: new Date().toISOString(),
-        })
-      )
+      addSession({
+        durationSeconds: elapsedSeconds,
+        completedAt: new Date().toISOString(),
+      })
     }
     setIsRunning(false)
     const total = Math.max(1, durationMinutes * 60 + durationSeconds)
     setTimeLeft(total)
     setInitialDuration(total)
-  }, [elapsedSeconds, durationMinutes, durationSeconds])
+  }, [elapsedSeconds, durationMinutes, durationSeconds, addSession])
 
   const reset = useCallback(() => {
     setIsRunning(false)
@@ -230,24 +250,66 @@ function App() {
   }, [durationMinutes, durationSeconds])
 
   const handleExport = useCallback(() => {
-    exportSessionsToCSV(getSessions())
-  }, [])
+    exportSessionsToCSV(getSessionsForExport())
+  }, [getSessionsForExport])
 
   const handleDeleteSession = useCallback((id) => {
-    setSessions(deleteSession(id))
-  }, [])
+    deleteSession(id)
+  }, [deleteSession])
 
   const handleUpdateSession = useCallback((id, updates) => {
-    setSessions(updateSession(id, updates))
-  }, [])
+    updateSession(id, updates)
+  }, [updateSession])
 
   const progress = initialDuration > 0 ? ((initialDuration - timeLeft) / initialDuration) * 100 : 0
+
+  const [authLoading, setAuthLoading] = useState(false)
+  const handleSignIn = useCallback(async () => {
+    setAuthLoading(true)
+    try {
+      await signInWithGoogle()
+    } catch (e) {
+      console.error('Sign in failed:', e)
+    } finally {
+      setAuthLoading(false)
+    }
+  }, [])
+
+  const handleSignOut = useCallback(async () => {
+    setAuthLoading(true)
+    try {
+      await signOut()
+    } finally {
+      setAuthLoading(false)
+    }
+  }, [])
 
   return (
     <div className="app">
       <header className="header">
-        <h1>Meditation Timer</h1>
-        <p className="subtitle">Breathe. Focus. Grow.</p>
+        <div className="header-row">
+          <div>
+            <h1>Meditation Timer</h1>
+            <p className="subtitle">Breathe. Focus. Grow.</p>
+          </div>
+          {hasConfig && (
+            <div className="auth-actions">
+              {user ? (
+                <div className="user-info">
+                  <img src={user.photoURL} alt="" className="user-avatar" />
+                  <span className="user-name">{user.displayName}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={handleSignOut} disabled={authLoading}>
+                    Sign out
+                  </button>
+                </div>
+              ) : (
+                <button className="btn btn-google" onClick={handleSignIn} disabled={authLoading}>
+                  {authLoading ? '...' : 'Sign in with Google'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </header>
 
       <section className="streaks">
@@ -345,7 +407,10 @@ function App() {
 
       <section className="sessions-section">
         <div className="sessions-header">
-          <h2>Session History</h2>
+          <h2>
+            Session History
+            {user && <span className="sync-badge">Synced</span>}
+          </h2>
           <button
             className="btn btn-export"
             onClick={handleExport}
@@ -355,7 +420,9 @@ function App() {
           </button>
         </div>
         <ul className="session-list">
-          {sessions.length === 0 ? (
+          {loading ? (
+            <li className="empty-state">Loading sessions...</li>
+          ) : sessions.length === 0 ? (
             <li className="empty-state">No sessions yet. Start your first meditation above.</li>
           ) : (
             sessions.map((s) => (
