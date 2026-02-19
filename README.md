@@ -38,3 +38,18 @@ The built app will be in the `dist` folder, ready to deploy or run locally.
 3. Create a **Firestore Database**
 4. Copy `.env.example` to `.env` and add your Firebase config (Project Settings → Your apps)
 5. Deploy Firestore rules: `firebase deploy --only firestore` (requires [Firebase CLI](https://firebase.google.com/docs/cli))
+
+### Firebase on GitHub Pages
+
+For Google sign-in to work on the deployed site, add your Firebase config as repository secrets:
+
+1. Go to **Settings** → **Secrets and variables** → **Actions**
+2. Add these secrets (values from your `.env` or Firebase Console):
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+
+3. Add `https://apevny0516-oss.github.io` to Firebase **Authentication** → **Settings** → **Authorized domains**
