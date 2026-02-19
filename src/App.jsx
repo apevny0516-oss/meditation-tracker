@@ -158,7 +158,7 @@ function App() {
 
   const playBell = useCallback(() => {
     try {
-      const audio = bellRef.current || new Audio('/gong.mp3')
+      const audio = bellRef.current || new Audio(import.meta.env.BASE_URL + 'gong.mp3')
       if (!bellRef.current) bellRef.current = audio
       audio.currentTime = 0
       audio.play().catch(() => {})
