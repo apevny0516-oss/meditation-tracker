@@ -40,13 +40,17 @@ export function useSessions() {
     return unsubscribe
   }, [user])
 
+  const clearError = useCallback(() => setError(null), [])
+
   const addSession = useCallback(
     async (session) => {
       if (user) {
         try {
+          setError(null)
           const added = await addSessionFirestore(session)
           setSessions((prev) => [added, ...prev])
         } catch (e) {
+          console.error('Firestore addSession failed:', e)
           setError(e.message)
           throw e
         }
@@ -105,6 +109,7 @@ export function useSessions() {
     sessions,
     loading,
     error,
+    clearError,
     addSession,
     updateSession,
     deleteSession,

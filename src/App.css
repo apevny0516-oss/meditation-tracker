@@ -89,6 +89,30 @@ body {
   font-size: 0.85rem;
 }
 
+.error-banner {
+  background: rgba(224, 122, 122, 0.2);
+  border: 1px solid #e07a7a;
+  color: #e07a7a;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.error-dismiss {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  margin-left: auto;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
 .sync-badge {
   display: inline-block;
   margin-left: 0.5rem;

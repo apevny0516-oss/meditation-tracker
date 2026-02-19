@@ -37,7 +37,13 @@ The built app will be in the `dist` folder, ready to deploy or run locally.
 2. Enable **Authentication** → **Sign-in method** → **Google**
 3. Create a **Firestore Database**
 4. Copy `.env.example` to `.env` and add your Firebase config (Project Settings → Your apps)
-5. Deploy Firestore rules: `firebase deploy --only firestore` (requires [Firebase CLI](https://firebase.google.com/docs/cli))
+5. **Deploy Firestore rules** (required for sessions to save):
+   ```bash
+   npm install -g firebase-tools   # or: npx firebase-tools
+   firebase login
+   firebase use meditation-tracker-fed84   # your project ID
+   firebase deploy --only firestore
+   ```
 
 ### Firebase on GitHub Pages
 

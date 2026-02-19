@@ -143,7 +143,7 @@ function SessionRow({ session, onUpdate, onDelete }) {
 }
 
 function App() {
-  const { user, sessions, loading, addSession, updateSession, deleteSession, getSessionsForExport } = useSessions()
+  const { user, sessions, loading, error: sessionError, clearError, addSession, updateSession, deleteSession, getSessionsForExport } = useSessions()
   const [durationMinutes, setDurationMinutes] = useState(() => getTimerSettings()?.minutes ?? 10)
   const [durationSeconds, setDurationSeconds] = useState(() => getTimerSettings()?.seconds ?? 0)
   const totalDurationSeconds = durationMinutes * 60 + durationSeconds
@@ -286,6 +286,12 @@ function App() {
 
   return (
     <div className="app">
+      {sessionError && (
+        <div className="error-banner">
+          Could not save session: {sessionError}. Check that Firestore rules are deployed.
+          <button type="button" className="error-dismiss" onClick={clearError} aria-label="Dismiss">×</button>
+        </div>
+      )}
       <header className="header">
         <div className="header-row">
           <div>
